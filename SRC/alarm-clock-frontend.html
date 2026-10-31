@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Alarm Clock System</title>
+<style>
+:root{--bg:#f4f5f7;--card:#fff;--tx:#14181f;--mu:#667085;--bd:#dfe3ea;--ac:#2563eb;--ok:#16a34a;--wa:#d97706;--er:#dc2626;--mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0d1117;--card:#161b22;--tx:#e6edf3;--mu:#8b949e;--bd:#2b323c;--ac:#58a6ff;--ok:#3fb950;--wa:#e3b341;--er:#f85149}}
+:root[data-theme="dark"]{--bg:#0d1117;--card:#161b22;--tx:#e6edf3;--mu:#8b949e;--bd:#2b323c;--ac:#58a6ff;--ok:#3fb950;--wa:#e3b341;--er:#f85149}
+*{box-sizing:border-box}html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.w{max-width:1100px;margin:0 auto;padding:20px 16px}
+h1{font-size:20px;margin:0}h2{font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--mu);margin:0 0 12px}
+.top{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:16px}
+.clock{font:600 34px var(--mono)}
+.g{display:grid;gap:16px;grid-template-columns:1fr 1fr}@media(max-width:800px){.g{grid-template-columns:1fr}}
+.c{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:16px;min-width:0}
+.full{grid-column:1/-1}
+.st{display:flex;gap:10px;flex-wrap:wrap}.st div{flex:1;min-width:90px;background:var(--bg);border-radius:8px;padding:8px 12px}.st b{display:block;font-size:22px}.st span{font-size:12px;color:var(--mu)}
+label{display:block;font-size:12px;color:var(--mu);margin:8px 0 3px}
+input,select{width:100%;padding:8px 10px;border:1px solid var(--bd);border-radius:8px;background:var(--bg);color:var(--tx);font:inherit}
+.r{display:flex;gap:8px}.r>*{flex:1}
+button{padding:8px 14px;border:0;border-radius:8px;background:var(--ac);color:#fff;font:600 14px inherit;cursor:pointer}
+button.s{background:var(--bg);color:var(--tx);border:1px solid var(--bd)}button.d{background:var(--er)}
+.tabs{display:flex;gap:6px;margin-bottom:12px}.tabs button{background:var(--bg);color:var(--mu);border:1px solid var(--bd)}.tabs button.on{background:var(--ac);color:#fff;border-color:var(--ac)}
+.sc{overflow-x:auto}table{width:100%;border-collapse:collapse;font-size:14px}th,td{text-align:left;padding:8px 6px;border-bottom:1px solid var(--bd);white-space:nowrap}th{font-size:12px;color:var(--mu)}
+.m{font-family:var(--mono)}.tag{padding:2px 8px;border-radius:99px;font-size:11px;font-weight:700;background:var(--bg)}
+.HIGH{color:var(--er)}.MEDIUM{color:var(--wa)}.LOW{color:var(--ok)}
+.log{font:12px/1.6 var(--mono);background:#0b0f14;color:#9be9a8;border-radius:8px;padding:10px;height:190px;overflow:auto}
+.empty{color:var(--mu);text-align:center;padding:22px}
+#ring{position:fixed;inset:0;background:rgba(0,0,0,.7);display:none;align-items:center;justify-content:center;z-index:9;padding:16px}
+#ring.on{display:flex}#ring .c{text-align:center;max-width:380px;border:2px solid var(--er)}
+#ring h1{font-size:30px;color:var(--er);animation:b .6s infinite alternate}@keyframes b{to{opacity:.4}}
+.pn{font:13px var(--mono);color:var(--mu)}
+</style>
+</head>
+<body>
+<div class="w">
+<div class="top"><div><h1>⏰ Alarm Clock System</h1><div class="pn">Manager PID <span id="mp"></span> · PPID <span id="pp"></span> · one child process per alarm</div></div><div class="clock" id="clk">--:--:--</div></div>
+<div class="g">
+<div class="c full"><h2>Statistics</h2><div class="st"><div><b id="s1">0</b><span>Total</span></div><div><b id="s2">0</b><span>Active</span></div><div><b id="s3">0</b><span>Completed / stopped</span></div></div></div>
+
+<div class="c"><h2>Create alarm</h2>
+<div class="tabs"><button id="t1" class="on">Delay alarm</button><button id="t2">Date / time alarm</button></div>
+<label>Label</label><input id="lab" maxlength="49" placeholder="e.g. Study break">
+<div id="f1"><label>Delay (seconds)</label><input id="sec" type="number" min="1" value="15"></div>
+<div id="f2" style="display:none"><label>Date and time</label><input id="dt" type="datetime-local"><label><input id="rec" type="checkbox" style="width:auto"> Repeat daily</label></div>
+<label>Priority</label><select id="pri"><option value="1">Low</option><option value="2">Medium</option><option value="3">High</option></select>
+<p style="margin:14px 0 0"><button id="add">Create alarm (fork)</button> <span id="msg" class="pn"></span></p></div>
+
+<div class="c"><h2>Process log</h2><div class="log" id="log"></div></div>
+
+<div class="c full"><h2>Active alarms</h2><div class="sc"><table><thead><tr><th>ID</th><th>Label</th><th>Time</th><th>Remaining</th><th>Type</th><th>Priority</th><th>Child PID</th><th>State</th><th></th></tr></thead><tbody id="act"></tbody></table></div></div>
+
+<div class="c full"><h2>Alarm history</h2><div class="sc"><table><thead><tr><th>ID</th><th>Label</th><th>PID</th><th>Priority</th><th>Status</th></tr></thead><tbody id="his"></tbody></table></div></div>
+</div>
+</div>
+<div id="ring"><div class="c"><h1>ALARM RINGING!</h1><p id="rl" style="font-size:18px"></p><p class="pn">SIGALRM delivered, child process exiting</p><button id="stop">Dismiss</button></div></div>
+<script>
+var A=[],nid=1,nextPid=4300,MP=4200+Math.floor(Math.random()*500),PPID=1000+Math.floor(Math.random()*300),beep=null,ringing=0;
+var $=function(i){return document.getElementById(i)};
+$("mp").textContent=MP;$("pp").textContent=PPID;
+function pad(n){return String(n).padStart(2,"0")}
+function log(t){var l=$("log");l.textContent+="["+new Date().toTimeString().slice(0,8)+"] "+t+"\n";l.scrollTop=l.scrollHeight}
+function pname(p){return p==3?"HIGH":p==2?"MEDIUM":"LOW"}
+function save(){try{localStorage.setItem("alarms",JSON.stringify(A.filter(function(a){return a.active})))}catch(e){}}
+function load(){try{var d=JSON.parse(localStorage.getItem("alarms")||"[]");d.forEach(function(a){if(a.target>Date.now()){a.pid=nextPid++;A.push(a);nid=Math.max(nid,a.id+1)}})}catch(e){}}
+function fork(a,target){a.pid=nextPid++;a.target=target;a.active=1;a.status="ACTIVE";log("fork() -> child PID "+a.pid+" (parent "+MP+")");log("child "+a.pid+": signal(SIGALRM, handler); alarm("+Math.max(1,Math.round((target-Date.now())/1000))+"); pause()")}
+function create(){
+ var label=$("lab").value.trim()||"Alarm",pr=+$("pri").value,tab2=$("f2").style.display!=="none",a={id:nid,label:label,priority:pr,created:Date.now(),recurring:0,snooze:0,delay:0},tg;
+ if(tab2){tg=new Date($("dt").value).getTime();a.recurring=$("rec").checked?1:0;if(!tg||tg<=Date.now()){$("msg").textContent="Time already passed or invalid.";return}}
+ else{var s=+$("sec").value;if(!(s>0)){$("msg").textContent="Invalid delay.";return}a.delay=s;tg=Date.now()+s*1000}
+ nid++;A.push(a);fork(a,tg);save();$("msg").textContent="Alarm "+a.id+" created (PID "+a.pid+")";render()}
+function kill(a,why){log("kill("+a.pid+", SIGTERM) ["+why+"]");log("waitpid("+a.pid+") -> child reaped")}
+function snooze(id){var m=+prompt("Snooze duration in minutes:","5");if(!(m>0))return;var a=A.find(function(x){return x.id==id});kill(a,"snooze");a.snooze=1;fork(a,Date.now()+m*60000);save();render()}
+function cancel(id){var a=A.find(function(x){return x.id==id});kill(a,"cancel");a.active=0;a.status="STOPPED";save();render()}
+function ring(a){
+ log("child "+a.pid+": SIGALRM received, handler writes ALARM RINGING, exit(0)");log("parent: waitpid("+a.pid+", WNOHANG) -> reaped");
+ $("rl").textContent=a.label+" · "+pname(a.priority)+" priority";$("ring").classList.add("on");ringing=1;sound();
+ if(a.recurring){a.target+=86400000;fork(a,a.target);log("recurring: new child scheduled +24h")}else{a.active=0;a.status="COMPLETED"}
+ save();render()}
+function sound(){try{var C=new (window.AudioContext||window.webkitAudioContext)(),n=0;beep=setInterval(function(){var o=C.createOscillator(),g=C.createGain();o.frequency.value=880;o.connect(g);g.connect(C.destination);g.gain.value=.15;o.start();o.stop(C.currentTime+.2);if(++n>40)stop()},500)}catch(e){}}
+function stop(){clearInterval(beep);$("ring").classList.remove("on");ringing=0}
+function fmt(ms){var s=Math.max(0,Math.round(ms/1000));return pad(Math.floor(s/3600))+":"+pad(Math.floor(s%3600/60))+":"+pad(s%60)}
+function render(){
+ var act=A.filter(function(a){return a.active}),h="";
+ $("s1").textContent=A.length;$("s2").textContent=act.length;$("s3").textContent=A.length-act.length;
+ act.forEach(function(a){var d=new Date(a.target);h+="<tr><td>"+a.id+"</td><td>"+esc(a.label)+"</td><td class=m>"+pad(d.getDate())+"-"+pad(d.getMonth()+1)+" "+pad(d.getHours())+":"+pad(d.getMinutes())+"</td><td class=m data-t='"+a.target+"'>"+fmt(a.target-Date.now())+"</td><td>"+(a.recurring?"DAILY":"ONCE")+"</td><td class='"+pname(a.priority)+"'><b>"+pname(a.priority)+"</b></td><td class=m>"+a.pid+" <span class=pn>(PPID "+MP+")</span></td><td><span class=tag>SLEEPING (pause)</span></td><td><button class=s onclick='snooze("+a.id+")'>Snooze</button> <button class=d onclick='cancel("+a.id+")'>Cancel</button></td></tr>"});
+ $("act").innerHTML=h||"<tr><td colspan=9 class=empty>No active alarms</td></tr>";
+ h="";A.forEach(function(a){h+="<tr><td>"+a.id+"</td><td>"+esc(a.label)+"</td><td class=m>"+a.pid+"</td><td class='"+pname(a.priority)+"'>"+pname(a.priority)+"</td><td>"+(a.active?"ACTIVE":a.status)+"</td></tr>"});
+ $("his").innerHTML=h||"<tr><td colspan=5 class=empty>No alarm history</td></tr>"}
+function esc(s){return s.replace(/[&<>"']/g,function(c){return"&#"+c.charCodeAt(0)+";"})}
+function tick(){var n=new Date();$("clk").textContent=pad(n.getHours())+":"+pad(n.getMinutes())+":"+pad(n.getSeconds());
+ A.forEach(function(a){if(a.active&&a.target<=Date.now())ring(a)});
+ document.querySelectorAll("[data-t]").forEach(function(e){e.textContent=fmt(+e.dataset.t-Date.now())})}
+function tab(n){$("f1").style.display=n==1?"":"none";$("f2").style.display=n==2?"":"none";$("t1").className=n==1?"on":"";$("t2").className=n==2?"on":""}
+$("t1").onclick=function(){tab(1)};$("t2").onclick=function(){tab(2)};$("add").onclick=create;$("stop").onclick=stop;
+var d0=new Date(Date.now()+120000);$("dt").value=d0.getFullYear()+"-"+pad(d0.getMonth()+1)+"-"+pad(d0.getDate())+"T"+pad(d0.getHours())+":"+pad(d0.getMinutes());
+log("alarm manager started, PID "+MP);load();render();setInterval(tick,500);tick();
+</script>
+</body>
+</html>
